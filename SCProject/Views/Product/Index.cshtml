@@ -1,0 +1,136 @@
+﻿@{
+    ViewData["Title"] = "Ürünler";
+}
+
+
+
+<!-- DevExpress DataGrid container -->
+<div id="productGrid"></div>
+
+@section Scripts {
+    <script>
+        $(function () {
+            // Ürün DataGrid'i - DevExpress DataGrid kullanılarak oluşturulmuştur
+            $("#productGrid").dxDataGrid({
+                // Veri kaynağı ayarları
+                dataSource: {
+                    store: {
+                        type: "odata",
+                        // Yalnızca URL tabanlı CRUD işlemleri için özelleştirilmiş store
+                    },
+                },
+                remoteOperations: false,
+                dataSource: new DevExpress.data.CustomStore({
+                    key: "ID",
+                    // Verileri getir
+                    load: function () {
+                        return $.getJSON("/Product/GetProduct");
+                    },
+                    // Yeni ürün ekle
+                    insert: function (values) {
+                        return $.ajax({
+                            url: "/Product/AddProduct",
+                            method: "POST",
+                            data: { values: JSON.stringify(values) }
+                        });
+                    },
+                    // Mevcut ürünü güncelle
+                    update: function (key, values) {
+                        return $.ajax({
+                            url: "/Product/UpdateProduct",
+                            method: "PUT",
+                            data: { key: key, values: JSON.stringify(values) }
+                        });
+                    },
+                    // Ürünü sil
+                    remove: function (key) {
+                        return $.ajax({
+                            url: "/Product/DeleteProduct",
+                            method: "DELETE",
+                            data: { key: key }
+                        });
+                    }
+                }),
+
+                // Sütun tanımları - Veritabanındaki Product tablosunun tüm sütunları kullanılmıştır
+                columns: [
+                    {
+                        dataField: "ID",
+                        caption: "ID",
+                        width: 70,
+                        allowEditing: false // ID otomatik artan, düzenlenemez
+                    },
+                    {
+                        dataField: "CATEGORY_ID",
+                    caption: "Kategori",
+                    // Kategori seçimi için dropdown (lookup)
+                    lookup: {
+                        dataSource: {
+                            store: new DevExpress.data.CustomStore({
+                                key: "value",
+                                loadMode: "raw",
+                                load: function () {
+                                    return $.getJSON("/Product/GetCategory");
+                                }
+                            })
+                        },
+                        valueExpr: "value",
+                        displayExpr: "text"
+                        }
+                    },
+                    {
+                        dataField: "NAME",
+                        caption: "Ürün Adı",
+                        validationRules: [{ type: "required", message: "Ürün adı zorunludur" }]
+                    },
+                    {
+                        dataField: "IMAGE_SRC",
+                        caption: "Görsel Yolu"
+                    },
+                    {
+                        dataField: "SALESPRICE",
+                        caption: "Satış Fiyatı",
+                        dataType: "number",
+                        format: { type: "fixedPoint", precision: 2 }
+                    }
+                ],
+
+                // Grid özellikleri
+                showBorders: true,
+                showRowLines: true,
+                rowAlternationEnabled: true,      
+                paging: { pageSize: 20 },
+                pager: {
+                    showPageSizeSelector: true,
+                    allowedPageSizes: [10, 15, 25, 50],
+                    showInfo: true
+                },
+
+                // CRUD işlemleri için düzenleme modu
+                editing: {
+                    mode: "popup",                       // Popup formunda düzenleme
+                    allowAdding: true,                   // Yeni ürün ekleme
+                    allowUpdating: true,                 // Güncelleme
+                    allowDeleting: true,                 // Silme
+                    popup: {
+                        title: "Ürün Bilgileri",
+                        showTitle: true,
+                        width: 600,
+                        height: 400
+                    }
+                },
+
+                // Hata yönetimi
+                onRowInserted: function (e) {
+                    DevExpress.ui.notify("Ürün başarıyla eklendi!", "success", 2000);
+                },
+                onRowUpdated: function (e) {
+                    DevExpress.ui.notify("Ürün başarıyla güncellendi!", "success", 2000);
+                },
+                onRowRemoved: function (e) {
+                    DevExpress.ui.notify("Ürün başarıyla silindi!", "success", 2000);
+                }
+            });
+        });
+    </script>
+}

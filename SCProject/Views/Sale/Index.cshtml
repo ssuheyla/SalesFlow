@@ -1,0 +1,240 @@
+﻿@{
+    ViewData["Title"] = "Satış Ekranı";
+}
+
+<h4> Satış Ekranı</h4>
+
+<div id="salesGrid"></div>
+
+@section Scripts {
+    <script>
+        $(function () {
+            // Satış DataGrid'i
+            $("#salesGrid").dxDataGrid({
+                dataSource: new DevExpress.data.CustomStore({
+                    key: "ID",
+                    // Satış verilerini getir
+                    load: function () {
+                        return $.getJSON("/Sale/getSales");
+                    },
+                    // Yeni satış ekle
+                    insert: function (values) {
+                        return $.ajax({
+                            url: "/Sale/AddSale",
+                            method: "POST",
+                            data: { values: JSON.stringify(values) }
+                        }).fail(function (xhr) {
+                            // Stok yetersizliği veya diğer hatalar için bildirim
+                            DevExpress.ui.notify(xhr.responseText || "Bir hata oluştu!", "error", 3000);
+                        });
+                    },
+                    // Satış güncelle
+                    update: function (key, values) {
+                        return $.ajax({
+                            url: "/Sale/UpdateSale",
+                            method: "PUT",
+                            data: { key: key, values: JSON.stringify(values) }
+                        });
+                    },
+                    // Satış sil
+                    remove: function (key) {
+                        return $.ajax({
+                            url: "/Sale/DeleteSale",
+                            method: "DELETE",
+                            data: { key: key }
+                        });
+                    }
+                }),
+
+                        columns: [
+            {
+                dataField: "ID",
+                caption: "ID",
+                width: 70,
+                allowEditing: false
+            },
+            {
+                dataField: "PRODUCT_ID",
+                caption: "Ürün",
+                lookup: {
+                    dataSource: {
+                        store: new DevExpress.data.CustomStore({
+                            key: "ID",
+                            loadMode: "raw",
+                            load: function () {
+                                return $.getJSON("/Sale/getProduct");
+                            }
+                        })
+                    },
+                    valueExpr: "ID",
+                    displayExpr: "NAME"
+                },
+                setCellValue: function (rowData, value) {
+                    rowData.PRODUCT_ID = value;
+                    if (value) {
+                        return $.getJSON("/Sale/GetProductPriceStock", { productId: value }).done(function (data) {
+                            rowData.LISTPRICE = data.SALESPRICE;
+                            rowData.SALESPRICE = data.SALESPRICE;
+                            rowData.DISCOUNTRATE = 0;
+                            rowData.AMOUNT = (rowData.QUANTITY || 0) * data.SALESPRICE;
+                            DevExpress.ui.notify("Mevcut stok: " + data.STOCK, "info", 3000);
+                        });
+                    }
+                }
+            },
+            {
+                dataField: "CUSTOMER_ID",
+                caption: "Müşteri",
+                lookup: {
+                    dataSource: {
+                        store: new DevExpress.data.CustomStore({
+                            key: "ID",
+                            loadMode: "raw",
+                            load: function () {
+                                return $.getJSON("/Sale/GetCustomers");
+                            }
+                        })
+                    },
+                    valueExpr: "ID",
+                    displayExpr: "CUSTOMERTITLE"
+                }
+            },
+            {
+                dataField: "QUANTITY",
+                caption: "Miktar",
+                dataType: "number"
+            },
+            {
+                dataField: "LISTPRICE",
+                caption: "Liste Fiyatı",
+                dataType: "number",
+                format: { type: "fixedPoint", precision: 2 },
+                allowEditing: false
+            },
+            {
+                dataField: "SALESPRICE",
+                caption: "Satış Fiyatı",
+                dataType: "number",
+                format: { type: "fixedPoint", precision: 2 }
+            },
+            {
+                dataField: "DISCOUNTRATE",
+                caption: "İskonto",
+                dataType: "number",
+                format: { type: "fixedPoint", precision: 2 },
+                allowEditing: false
+            },
+            {
+                dataField: "AMOUNT",
+                caption: "Toplam Tutar",
+                dataType: "number",
+                format: { type: "fixedPoint", precision: 2 },
+                allowEditing: false
+            },
+            {
+                dataField: "DATE",
+                caption: "Tarih",
+                dataType: "date",
+                format: "dd.MM.yyyy"
+            }
+        ],
+
+        // Satış fiyatı veya miktar değişince iskonto ve tutarı anlık hesapla
+        onEditorPreparing: function (e) {
+            if (e.parentType !== "dataRow") return;
+
+            if (e.dataField === "SALESPRICE") {
+                var defaultOnChanged = e.editorOptions.onValueChanged;
+                e.editorOptions.onValueChanged = function (args) {
+                    defaultOnChanged && defaultOnChanged(args);
+                    var grid = e.component;
+                    var salesPrice = args.value;
+                    var listPrice = grid.cellValue(e.row.rowIndex, "LISTPRICE");
+                    var quantity = grid.cellValue(e.row.rowIndex, "QUANTITY");
+
+                    // İskonto: (LISTPRICE - SALESPRICE) / LISTPRICE * 100
+                    if (listPrice && listPrice > 0) {
+                        grid.cellValue(e.row.rowIndex, "DISCOUNTRATE",
+                            Math.round(((listPrice - salesPrice) / listPrice) * 10000) / 100);
+                    }
+                    // Toplam tutar: QUANTITY * SALESPRICE
+                    if (quantity) {
+                        grid.cellValue(e.row.rowIndex, "AMOUNT", quantity * salesPrice);
+                    }
+                };
+            }
+
+            if (e.dataField === "QUANTITY") {
+                var defaultOnChanged2 = e.editorOptions.onValueChanged;
+                e.editorOptions.onValueChanged = function (args) {
+                    defaultOnChanged2 && defaultOnChanged2(args);
+                    var grid = e.component;
+                    var quantity = args.value;
+                    var salesPrice = grid.cellValue(e.row.rowIndex, "SALESPRICE");
+
+                    // Toplam tutar: QUANTITY * SALESPRICE
+                    if (salesPrice) {
+                        grid.cellValue(e.row.rowIndex, "AMOUNT", quantity * salesPrice);
+                    }
+                };
+            }
+        },
+            
+                // Grid özellikleri
+                showBorders: true,
+                showRowLines: true,
+                rowAlternationEnabled: true,
+                paging: { pageSize: 25 },
+                pager: {
+                    showPageSizeSelector: true,
+                    allowedPageSizes: [10, 15, 25, 50],
+                    showInfo: true
+                },
+
+                // Düzenleme ayarları
+                        editing: {
+            mode: "popup",
+            allowAdding: true,
+            allowUpdating: true,
+            allowDeleting: true,
+            popup: {
+                title: "Satış Bilgileri",
+                showTitle: true,
+                width: 700,
+                height: 525
+            },
+            form: {
+                colCount: 2,
+                items: [
+                    { dataField: "PRODUCT_ID" },
+                    { dataField: "CUSTOMER_ID" },
+                    { dataField: "QUANTITY" },
+                    { dataField: "LISTPRICE" },
+                    { dataField: "SALESPRICE" },
+                    { dataField: "DISCOUNTRATE" },
+                    { dataField: "AMOUNT" },
+                    { dataField: "DATE" }
+                ]
+            }
+        },
+
+                // // Dışa aktarma
+                // export: {
+                //     enabled: true,
+                //     allowExportSelectedData: true
+                // },
+
+                // Bildirimler
+                onRowInserted: function (e) {
+                    DevExpress.ui.notify("Satış kaydı başarıyla eklendi!", "success", 2000);
+                },
+                onRowUpdated: function (e) {
+                    DevExpress.ui.notify("Satış kaydı güncellendi!", "success", 2000);
+                },
+                onRowRemoved: function (e) {
+                    DevExpress.ui.notify("Satış kaydı silindi!", "success", 2000);
+                }
+            });
+        });
+    </script>
+}

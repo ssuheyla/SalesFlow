@@ -1,0 +1,62 @@
+﻿@{
+    ViewData["Title"] = "Stok Raporu";
+}
+
+<h4> Stok Raporu</h4>
+
+
+<div id="stockReportGrid"></div>
+
+@section Scripts {
+    <script>
+        $(function () {
+            // Stok Raporu DataGrid'i
+            $("#stockReportGrid").dxDataGrid({
+                        dataSource: new DevExpress.data.CustomStore({
+            key: "productId",
+            loadMode: "raw",
+            load: function () {
+                return $.getJSON("/Report/GetStockReportData");
+            }
+        }),
+                // Sütun tanımları
+                columns: [
+                    {
+                        dataField: "productId",
+                        caption: "Ürün ID",
+                        width: 80
+                    },
+                    {
+                        dataField: "productName",
+                        caption: "Ürün Adı"
+                    },
+                    {
+                        dataField: "categoryName",
+                        caption: "Kategori"
+                    },
+                    {
+                        dataField: "totalStock",
+                        caption: "Toplam Stok",
+                        dataType: "number",
+                        format: { type: "fixedPoint", precision: 0 },
+
+                    }
+                ],
+
+                // Grid özellikleri
+                showBorders: true,
+                showRowLines: true,
+                rowAlternationEnabled: true,
+                groupPanel: { visible: true },
+                paging: { pageSize: 20 },
+                pager: {
+                    showPageSizeSelector: true,
+                    allowedPageSizes: [10, 20, 50],
+                    showInfo: true
+                },
+
+
+            });
+        });
+    </script>
+}

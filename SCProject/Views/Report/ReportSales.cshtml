@@ -1,0 +1,94 @@
+﻿@{
+    ViewData["Title"] = "Satış Raporu";
+}
+
+<h4> Satış Raporu</h4>
+
+
+<div class="row mb-3">
+    <div class="col-md-3">
+        <label class="form-label"><strong>Başlangıç Tarihi:</strong></label>
+        <div id="startDate"></div>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label"><strong>Bitiş Tarihi:</strong></label>
+        <div id="endDate"></div>
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+        <button id="filterBtn" class="btn btn-primary me-2"> Filtrele</button>
+        <button id="clearBtn" class="btn btn-secondary"> Temizle</button>
+    </div>
+</div>
+
+<div id="salesReportGrid"></div>
+
+@section Scripts {
+    <script>
+        $(function () {
+            var startDatePicker = $("#startDate").dxDateBox({
+                type: "date",
+                displayFormat: "dd.MM.yyyy",
+                placeholder: "Başlangıç tarihi..."
+            }).dxDateBox("instance");
+
+            var endDatePicker = $("#endDate").dxDateBox({
+                type: "date",
+                displayFormat: "dd.MM.yyyy",
+                placeholder: "Bitiş tarihi..."
+            }).dxDateBox("instance");
+
+            var grid = $("#salesReportGrid").dxDataGrid({
+                dataSource: new DevExpress.data.CustomStore({
+                    key: "Urun",
+                    loadMode: "raw",
+                    load: function () {
+                        var params = {};
+                        var start = startDatePicker.option("value");
+                        var end = endDatePicker.option("value");
+                        if (start) params.startDate = new Date(start).toISOString();
+                        if (end) params.endDate = new Date(end).toISOString();
+                        return $.getJSON("/Report/GetSalesReportData", params);
+                    }
+                }),
+
+                columns: [
+                    { dataField: "Kategori", caption: "Kategori", groupIndex: 0 },
+                    { dataField: "Urun", caption: "Ürün Adı" },
+                    { dataField: "ToplamMiktar", caption: "Toplam Miktar", dataType: "number", sortOrder: "desc" },
+                    { dataField: "ToplamTutar", caption: "Toplam Tutar)", dataType: "number", format: { type: "fixedPoint", precision: 2 } }
+                ],
+
+                summary: {
+                    groupItems: [
+                        { column: "ToplamMiktar", summaryType: "sum", displayFormat: "Toplam: {0} adet" },
+                        { column: "ToplamTutar", summaryType: "sum", valueFormat: { type: "fixedPoint", precision: 2 }, displayFormat: "Toplam TL: {0} " }
+                    ],
+                    totalItems: [
+                        { column: "ToplamMiktar", summaryType: "sum", displayFormat: "Genel Toplam: {0} adet" },
+                        { column: "ToplamTutar", summaryType: "sum", valueFormat: { type: "fixedPoint", precision: 2 }, displayFormat: "Genel Toplam TL: {0} " }
+                    ]
+                },
+
+                showBorders: true,
+                showRowLines: true,
+                rowAlternationEnabled: true,               
+                paging: { pageSize: 20 },
+                pager: {
+                    showPageSizeSelector: true,
+                    allowedPageSizes: [10, 20, 50],
+                    showInfo: true
+                }
+            }).dxDataGrid("instance");
+
+            $("#filterBtn").on("click", function () {
+                grid.refresh();
+            });
+
+            $("#clearBtn").on("click", function () {
+                startDatePicker.option("value", null);
+                endDatePicker.option("value", null);
+                grid.refresh();
+            });
+        });
+    </script>
+}
